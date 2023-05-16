@@ -121,7 +121,7 @@ architecture rtl of guest_mist is
   end component data_io;
 
   component sdram
-    generic ( MHZ: integer := 43 );
+    generic ( MHZ: integer := 84 );
     port (
         SDRAM_DQ    : inout std_logic_vector(15 downto 0);
         SDRAM_A     : out std_logic_vector(11 downto 0);
@@ -272,6 +272,7 @@ begin
       );
 
   SDRAM_CLK <= clk_sys_s;
+
 
   UART_TX <= '1';
   uart: process (clk_sys_s)

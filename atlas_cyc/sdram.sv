@@ -47,7 +47,7 @@ module sdram (
 	output reg [15:0] port1_q
 );
 
-parameter  MHZ = 16'd85; // 80 MHz default clock, set it to proper value to calculate refresh rate
+parameter  MHZ = 16'd80; // 80 MHz default clock, set it to proper value to calculate refresh rate
 
 localparam RASCAS_DELAY   = 3'd2;   // tRCD=20ns -> 2 cycles@<100MHz
 localparam BURST_LENGTH   = 3'b000; // 000=1, 001=2, 010=4, 011=8
@@ -57,6 +57,7 @@ localparam OP_MODE        = 2'b00;  // only 00 (standard operation) allowed
 localparam NO_WRITE_BURST = 1'b1;   // 0= write burst enabled, 1=only single access write
 
 localparam MODE = { 2'b00, NO_WRITE_BURST, OP_MODE, CAS_LATENCY, ACCESS_TYPE, BURST_LENGTH}; 
+//12'b00_1_00_010_0_000
 // 64ms/8192 rows = 7.8us
 // 64ms/4096 rows = 15.6us
 
@@ -83,10 +84,15 @@ cmd issued  registered
 //localparam STATE_LAST      = STATE_READ0;
 
 localparam STATE_RAS0      = 3'd0;   // first state in cycle
-localparam STATE_RAS1      = 3'd3;   // Second ACTIVE command after RAS0 + tRRD (15ns)
+//localparam STATE_RAS1      = 3'd3;   // Second ACTIVE command after RAS0 + tRRD (15ns)
 localparam STATE_CAS0      = STATE_RAS0 + RASCAS_DELAY; // CAS phase - 3
-localparam STATE_READ0     = STATE_CAS0 + CAS_LATENCY + 2'd2; // 6
-localparam STATE_LAST      = 3'd7;
+//localparam STATE_READ0     = STATE_CAS0 + CAS_LATENCY + 2'd2; // 6
+//localparam STATE_LAST      = 3'd7;
+localparam STATE_READ0     = STATE_CAS0 + CAS_LATENCY + 1'd1; // 5
+localparam STATE_LAST      = STATE_READ0;
+
+
+
 
 reg [2:0] t;
 
@@ -150,14 +156,14 @@ wire       need_refresh = (refresh_cnt >= RFRSH_CYCLES);
 wire       port1_active = port1_req ^ port1_ack /* synthesis keep */;
 
 always @(posedge clk) begin
-
+SDRAM_CKE <= 1'b1;
 	SDRAM_DQ <= 16'bZZZZZZZZZZZZZZZZ;
 	{ SDRAM_DQMH, SDRAM_DQML } <= 2'b11;
 	sd_cmd <= CMD_NOP;  // default: idle
 	refresh_cnt <= refresh_cnt + 1'd1;
 
 	if(init) begin
-	   SDRAM_CKE <=1'b1;
+	 //  SDRAM_CKE <=1'b1;
 		// initialization takes place at the end of the reset phase
 		refresh_cnt <= 0;
 		if(t == STATE_RAS0) begin
@@ -165,25 +171,25 @@ always @(posedge clk) begin
 			if(reset == 15) begin
 				sd_cmd <= CMD_PRECHARGE;
 				{ SDRAM_DQMH, SDRAM_DQML } <= 2'b11;
-				//SDRAM_A[10] <= 1'b1;      // precharge all banks
+			//	SDRAM_A[10] <= 1'b1;      // precharge all banks
 				SDRAM_A <= 12'b1;
 				SDRAM_BA <= 2'b00;
 			end
-			if(reset == 1) begin
+			if(reset == 2) begin
 				sd_cmd <= CMD_LOAD_MODE;
 				SDRAM_A <= MODE;
-				//SDRAM_BA <= 2'b00;
+				SDRAM_BA <= 2'b00;
 			end
-			if( reset ==12 || reset ==6) begin
+			if( reset ==10 || reset ==8) begin
 				sd_cmd <= CMD_AUTO_REFRESH;
-				SDRAM_CKE <= 1'b0;
+				//SDRAM_CKE <= 1'b0;
 			end
 
 		end
 	end else begin
 		// RAS phase
 		// bank 0,1
-		SDRAM_CKE <= 1'b1;
+		//SDRAM_CKE <= 1'b1;
 		if(t == STATE_RAS0) begin
 			{ oe_latch, we_latch } <= 2'b00;
 
@@ -198,7 +204,7 @@ always @(posedge clk) begin
 				port1_state <= port1_req;
 			end else if (need_refresh) begin
 				sd_cmd <= CMD_AUTO_REFRESH;
-				SDRAM_CKE <= 1'b0;
+			//	SDRAM_CKE <= 1'b0;
 				refresh_cnt <= 0;
 			end
 		end
